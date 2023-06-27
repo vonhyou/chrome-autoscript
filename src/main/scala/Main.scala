@@ -7,36 +7,44 @@ import scala.util.{Failure, Success, Try, Using}
 @main def main(): Unit =
   print("Enter the path to the file containing the URLs: ")
   val urls: List[URL] = getURLs(Path.of(readLine()))
-  print(s"Found ${urls.length} URLs, proceed? [y/N]")
+  val intervals: List[Int] = BrowsingTime.of()
+  val totalTime: Int = intervals.sum
+
+  confirmation(urls.length, totalTime, intervals.length + 1)
 
   readLine().trim().toLowerCase() match
     case "y" =>
-      urls.indices.foreach { i =>
-        runTestOn(urls(i))
-        printLog(i, urls.length, urls(i))
+      intervals.indices.foreach { i =>
+        printLog(i, urls.length, intervals(i), urls(i))
+        runTestOn(urls(i), intervals(i))
       }
     case _ => println("Aborted")
-
-
 
 def getURLs(path: Path): List[URL] =
   var urls = List[URL]()
   Using.resource(Source.fromFile(path.toString)) { source =>
     source.getLines().foreach { line =>
       Try(new URL(line)) match
-        case Success(value) => urls = urls :+ value
-        case Failure(_) => println(s"`$line` is not a valid URL")
+        case Success(value) => urls = urls :+ value // or urls ::: value :: Nil
+        case Failure(_) => println(s"[Warning]: `$line` is not a valid URL")
     }
   }
   urls
 
-def runTestOn(url: URL): Unit =
+def runTestOn(url: URL, interval: Int): Unit =
   Emulator.openTab(url)
-  Thread.sleep(2000)
+  Thread.sleep(interval * 1000)
   Emulator.closeTab()
 
-def printLog(i: Int, length: Int, url: URL): Unit =
-  println(s"[${i + 1}/$length]: ${
+def printLog(i: Int, length: Int, interval: Int, url: URL): Unit =
+  println(s"[${i + 1}/$length]: Visiting ${
     if url.toString.length > 80 then url.toString.take(80) + "..."
     else url
-  }")
+  } for $interval seconds")
+
+def confirmation(urlNumber: Int, totalTime: Int, totalVisiting: Int): Unit =
+  print(
+    s"""Found $urlNumber URLs
+       |Expected to run $totalTime seconds
+       |For visiting $totalVisiting sites
+       |proceed? [y/N]""".stripMargin)
